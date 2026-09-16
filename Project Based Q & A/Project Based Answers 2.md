@@ -15,6 +15,11 @@
 - [Q11: Why should we not simply suppress security warnings?](#q11-why-should-we-not-simply-suppress-security-warnings)
 - [Q12: Cursor plus MCP used in project development](#q12-cursor-plus-mcp-used-in-project-development)
 - [Q13: Which AWS services did you actually use?](#q13-which-aws-services-did-you-actually-use)
+- [Q14: How did your .NET API communicate with AWS?](#q14-how-did-your-net-api-communicate-with-aws)
+- [Q15: What happens if message processing fails?](#q15-what-happens-if-message-processing-fails)
+- [Q16: How do you retry a failed message?](#q16-how-do-you-retry-a-failed-message)
+- [Q17: What is a Dead-Letter Queue?](#q17-what-is-a-dead-letter-queue)
+- [Q18: How do you ensure a message is not processed twice?](#q18-how-do-you-ensure-a-message-is-not-processed-twice)
 
 ## Q1: Tell me about one query you optimized and how (SQL)
 
@@ -1198,3 +1203,170 @@ So if the interviewer asks, "Did you use AWS in Bonmojo?" the safer and more cor
 ### Best interview answer
 
 In my OSP project, I used AWS API Gateway, SQS, ECS Fargate, RDS, ElastiCache Redis, S3, CloudFront, Lambda, CloudWatch, X-Ray, SES, and SNS. These covered API routing, messaging, container hosting, database, caching, file storage, CDN, background processing, monitoring, tracing, email, and notifications. Bonmojo, on the other hand, was mainly Azure-based, so I would not incorrectly claim the same AWS stack there.
+
+## Q14: How did your .NET API communicate with AWS?
+
+My .NET API communicated with AWS in a few standard ways, depending on the service.
+
+### Simple answer
+
+The .NET API used the AWS SDK, HTTP requests, environment configuration, and IAM-based credentials to talk to AWS services securely.
+
+### Basic flow
+
+- The .NET application reads AWS configuration from environment variables or secret storage.
+- It uses the AWS SDK for .NET or HTTP calls to access AWS services.
+- AWS credentials are provided securely through IAM roles, access keys, or managed identity-style patterns depending on the hosting setup.
+- The API sends data to AWS services like S3, SQS, SES, or RDS-related connectors.
+
+### How this works for each service
+
+#### S3
+
+- The .NET API uses the AWS SDK for .NET.
+- It uploads files, downloads files, or creates pre-signed URLs.
+- Example: upload profile images or reports.
+
+#### SQS
+
+- The .NET API sends messages to a queue.
+- A worker service or another .NET service reads the queue later.
+- Example: send a notification job after payment.
+
+#### ECS / Fargate
+
+- The .NET API itself can run inside ECS Fargate.
+- In that case, AWS runs the container and the app talks to other AWS services from inside the container.
+
+#### RDS
+
+- The .NET API connects to RDS using a connection string.
+- Usually this is used with Entity Framework Core, Dapper, or ADO.NET.
+
+#### CloudWatch and X-Ray
+
+- The .NET app sends logs, metrics, and tracing data using AWS-supported libraries or agents.
+- This helps with monitoring and debugging.
+
+#### SES and SNS
+
+- The .NET API sends email through SES.
+- It publishes notifications or events through SNS.
+
+### What I usually say as a .NET developer
+
+I would say that the API did not talk to AWS in one single way. It depended on the service. For file storage I used S3, for async messaging I used SQS, for email I used SES, for monitoring I used CloudWatch and X-Ray, and for database access I used RDS with normal .NET database libraries.
+
+### Important concepts to know
+
+- AWS SDK for .NET is the main library for calling AWS services from .NET.
+- IAM controls what the app is allowed to do.
+- Secrets should not be hardcoded in code or config files.
+- Use environment variables, secret stores, or IAM roles where possible.
+
+### Simple interview answer
+
+My .NET API communicated with AWS using the AWS SDK for .NET, HTTP calls where needed, and secure AWS credentials through IAM-based access. I used S3 for files, SQS for async messaging, RDS for database access, SES for email, SNS for notifications, and CloudWatch/X-Ray for monitoring and tracing. The exact communication method depended on the service, but the main idea was secure API-to-AWS integration through the AWS SDK and proper IAM permissions.
+
+## Q15: What happens if message processing fails?
+
+If message processing fails, the message should not be lost immediately. The system should detect the failure, log it, and try again based on the retry policy.
+
+### In simple words
+
+The message did not finish successfully, so we need to handle it safely instead of ignoring it.
+
+### What usually happens
+
+- The consumer reads the message.
+- Processing throws an error or returns failure.
+- The message is retried or moved to a dead-letter queue.
+- The failure is logged for later investigation.
+
+### Why this matters
+
+- It prevents data loss.
+- It helps recover from temporary issues.
+- It gives the team visibility into broken messages.
+
+### Simple interview answer
+
+If message processing fails, I do not delete the message blindly. I log the error, retry if the issue looks temporary, and send the message to a dead-letter queue if it keeps failing.
+
+## Q16: How do you retry a failed message?
+
+I retry a failed message by using a controlled retry policy, not an infinite loop.
+
+### In simple words
+
+If the failure is temporary, I try again after a short delay.
+
+### Common retry approach
+
+- Retry a few times only.
+- Use exponential backoff, so each retry waits a little longer.
+- Add a maximum retry count.
+- Log every failed attempt.
+
+### Example
+
+If a payment gateway is down for a few seconds, the message can be retried after 5 seconds, then 15 seconds, then 30 seconds.
+
+### Important concept
+
+- Retry is useful for temporary issues.
+- Retry is not useful if the message is permanently bad, like invalid data.
+
+### Simple interview answer
+
+I retry failed messages using a fixed retry count and exponential backoff. That means the system tries again a few times with increasing delay, and if it still fails, I move it to a dead-letter queue.
+
+## Q17: What is a Dead-Letter Queue?
+
+A Dead-Letter Queue, or DLQ, is a special queue where failed messages are stored after they cannot be processed successfully.
+
+### In simple words
+
+It is a holding place for bad or repeatedly failing messages.
+
+### Why it is useful
+
+- It keeps the main queue clean.
+- It prevents one bad message from blocking others.
+- It lets the team inspect and fix failed messages later.
+
+### Example
+
+If a message fails 3 times because of invalid payload or a broken dependency, I move it to the DLQ for review.
+
+### Simple interview answer
+
+A Dead-Letter Queue is a queue used for messages that keep failing. Instead of blocking the main queue, those messages are moved to the DLQ so the team can inspect them later.
+
+## Q18: How do you ensure a message is not processed twice?
+
+I handle duplicate processing by making the consumer idempotent.
+
+### In simple words
+
+Even if the same message arrives again, the system should not do the work twice.
+
+### How I do it
+
+- Use a unique message ID.
+- Store processed message IDs in the database or cache.
+- Check if the message was already handled before processing it.
+- Make database updates safe so repeated processing does not break data.
+
+### Example
+
+If a payment message is received twice, I first check whether that payment transaction ID was already processed. If yes, I skip it.
+
+### Important concept
+
+- In distributed systems, "at least once delivery" is common.
+- That means duplicates can happen, so idempotency is important.
+
+### Simple interview answer
+
+To avoid double processing, I make the consumer idempotent. I use a unique message ID, store processed IDs, and check whether the message was already handled before doing the work again.
