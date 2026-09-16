@@ -14,6 +14,7 @@
 - [Q10: How do you pass data between two microservices using Entra ID?](#q10-how-do-you-pass-data-between-two-microservices-using-entra-id)
 - [Q11: Why should we not simply suppress security warnings?](#q11-why-should-we-not-simply-suppress-security-warnings)
 - [Q12: Cursor plus MCP used in project development](#q12-cursor-plus-mcp-used-in-project-development)
+- [Q13: Which AWS services did you actually use?](#q13-which-aws-services-did-you-actually-use)
 
 ## Q1: Tell me about one query you optimized and how (SQL)
 
@@ -848,3 +849,352 @@ That means:
 ### Simple interview answer
 
 We used Cursor with MCP to reduce the time developers spent switching between Jira, GitHub, and the codebase. Cursor handled the AI interaction, and MCP acted as the secure bridge to external tools. MCP exposed only approved Jira and GitHub operations, used restricted credentials, and returned controlled data back to the AI. For security, we used scoped access, secret storage, branch protection, approval workflows, audit logs, and treated Jira content as untrusted input to prevent prompt injection or unauthorized repository access.
+
+## Q13: Which AWS services did you actually use?
+
+This answer should be given carefully, because my OSP project and Bonmojo project were not exactly the same in terms of cloud platform.
+
+### Short honest answer
+
+In the OSP project, I used AWS services directly. In Bonmojo, the documented setup was mainly Azure-based, so I would not claim AWS there unless the interviewer is asking only at a pattern level.
+
+### AWS services I actually used in OSP
+
+- AWS API Gateway
+- Amazon SQS
+- Amazon ECS with Fargate
+- Amazon RDS
+- Amazon ElastiCache for Redis
+- Amazon S3
+- Amazon CloudFront
+- AWS Lambda
+- Amazon CloudWatch
+- AWS X-Ray
+- Amazon SES
+- Amazon SNS
+
+### What I used them for in simple words
+
+### Beginner-friendly explanation of each AWS service
+
+#### 1. AWS API Gateway
+
+AWS API Gateway is the front door for your APIs.
+
+What it does:
+
+- Receives HTTP requests from the frontend or another service.
+- Routes the request to the right backend service.
+- Can check authentication, rate limits, and request rules before forwarding.
+
+Why a .NET developer uses it:
+
+- Your Angular app should not call many services directly.
+- API Gateway gives one clean endpoint, like `https://api.company.com`.
+- It helps keep the microservices hidden and easier to manage.
+
+Simple example:
+
+- `GET /users` goes to User Service.
+- `POST /orders` goes to Order Service.
+
+In practice, I think of it as the traffic controller for the system.
+
+#### 2. Amazon SQS
+
+Amazon SQS is a message queue.
+
+What it does:
+
+- Stores messages temporarily until another service is ready to process them.
+- Lets services talk to each other without waiting in real time.
+
+Why a .NET developer uses it:
+
+- It helps when one service should not block another.
+- A controller or API can send a message and return fast.
+- A background worker in .NET can read the queue later.
+
+Simple example:
+
+- Payment Service sends a message: "payment completed".
+- Notification Service reads that message and sends an email.
+
+Important concept:
+
+- SQS is good for decoupling services and handling spikes in traffic.
+- It is not for instant request/response style communication.
+
+#### 3. Amazon ECS with Fargate
+
+Amazon ECS Fargate is where Docker containers run without managing servers.
+
+What it does:
+
+- Hosts your containerized .NET APIs.
+- Automatically handles the underlying infrastructure.
+
+Why a .NET developer uses it:
+
+- You build a Docker image for your ASP.NET Core app.
+- ECS Fargate runs that container for you.
+- You do not need to patch or manage EC2 machines directly.
+
+Simple example:
+
+- Build a container for `UserService`.
+- Deploy it to ECS Fargate.
+- Scale it up if traffic increases.
+
+Important concept:
+
+- Each service can run in its own container.
+- This makes deployments and scaling easier than one big monolith.
+
+#### 4. Amazon RDS
+
+Amazon RDS is a managed relational database service.
+
+What it does:
+
+- Gives you a SQL database without manual server administration.
+- Handles backups, patching, monitoring, and failover options.
+
+Why a .NET developer uses it:
+
+- .NET apps commonly use Entity Framework Core or Dapper with SQL databases.
+- RDS gives a stable database endpoint that your app connects to through a connection string.
+
+Simple example:
+
+- Store users, orders, transactions, or logs in RDS.
+- Use EF Core migrations to update the schema.
+
+Important concept:
+
+- RDS is still a relational database, so you use tables, joins, indexes, and transactions.
+- It is useful when you need structured data and strong consistency.
+
+#### 5. Amazon ElastiCache for Redis
+
+Amazon ElastiCache Redis is an in-memory cache.
+
+What it does:
+
+- Stores frequently used data in memory so it can be fetched very fast.
+- Reduces pressure on the database.
+
+Why a .NET developer uses it:
+
+- It is great for caching data that changes slowly.
+- It can store session-like data, rate limits, or short-lived values.
+
+Simple example:
+
+- Cache product or profile data for 5 minutes.
+- Read from Redis first.
+- If the data is not there, fetch from the database and store it in Redis.
+
+Important concept:
+
+- Redis is not your main long-term database.
+- It is a speed layer.
+
+#### 6. Amazon S3
+
+Amazon S3 is object storage for files.
+
+What it does:
+
+- Stores files like images, PDFs, videos, CSVs, and backups.
+- Keeps files in buckets.
+
+Why a .NET developer uses it:
+
+- Your API can upload files to S3 using the AWS SDK for .NET.
+- You can generate pre-signed URLs so users can upload or download safely.
+
+Simple example:
+
+- User uploads a profile image.
+- .NET API sends the file to S3.
+- Database stores only the file URL or key.
+
+Important concept:
+
+- S3 is for files, not relational rows.
+- You usually do not store the actual file bytes inside SQL tables.
+
+#### 7. Amazon CloudFront
+
+Amazon CloudFront is a CDN.
+
+What it does:
+
+- Delivers static content from edge locations close to the user.
+- Makes downloads and page loads faster.
+
+Why a .NET developer uses it:
+
+- If your app stores images or static files in S3, CloudFront can sit in front of S3.
+- Users get faster access and lower latency.
+
+Simple example:
+
+- A user in one region opens an image.
+- CloudFront serves it from a nearby edge location instead of the origin bucket every time.
+
+Important concept:
+
+- CloudFront is not the storage itself.
+- It is the delivery layer in front of storage or an origin server.
+
+#### 8. AWS Lambda
+
+AWS Lambda runs code without a server.
+
+What it does:
+
+- Executes small pieces of code when an event happens.
+- Scales automatically.
+
+Why a .NET developer uses it:
+
+- Great for small background jobs, event handlers, or file processing.
+- You write a function, connect a trigger, and AWS runs it.
+
+Simple example:
+
+- A file is uploaded to S3.
+- Lambda triggers and creates a thumbnail.
+
+Important concept:
+
+- Lambda is best for short, event-driven tasks.
+- It is not ideal for long-running heavy workloads.
+
+#### 9. Amazon CloudWatch
+
+Amazon CloudWatch is for monitoring and logging.
+
+What it does:
+
+- Collects logs, metrics, and alarms.
+- Helps you see what your app is doing in production.
+
+Why a .NET developer uses it:
+
+- You can send app logs from containers or Lambda to CloudWatch Logs.
+- You can track CPU, memory, queue length, errors, and custom business metrics.
+
+Simple example:
+
+- Set an alarm if error rate becomes too high.
+- Check logs when a request fails.
+
+Important concept:
+
+- Monitoring is how you know a service is healthy.
+- Logging is how you debug when something goes wrong.
+
+#### 10. AWS X-Ray
+
+AWS X-Ray is for distributed tracing.
+
+What it does:
+
+- Shows how one request moves through multiple services.
+- Helps find slow steps or failing calls.
+
+Why a .NET developer uses it:
+
+- In microservices, one request may touch many APIs.
+- X-Ray helps you see where time is spent.
+
+Simple example:
+
+- Frontend calls API Gateway.
+- API Gateway calls Service A.
+- Service A calls Service B.
+- X-Ray shows which part was slow.
+
+Important concept:
+
+- Metrics tell you something is wrong.
+- Traces tell you where it is wrong.
+
+#### 11. Amazon SES
+
+Amazon SES is an email sending service.
+
+What it does:
+
+- Sends transactional and bulk emails.
+- Handles deliverability features like reputation and bounce tracking.
+
+Why a .NET developer uses it:
+
+- Your application can send password reset emails, receipts, alerts, and verification emails.
+- You can call SES from .NET using the AWS SDK or SMTP.
+
+Simple example:
+
+- User registers.
+- .NET app sends a verification email through SES.
+
+Important concept:
+
+- SES is better than building your own SMTP mail server.
+
+#### 12. Amazon SNS
+
+Amazon SNS is a publish/subscribe notification service.
+
+What it does:
+
+- Sends a message to many subscribers at once.
+- Can fan out to email, SQS, Lambda, HTTP endpoints, and more.
+
+Why a .NET developer uses it:
+
+- Use SNS when one event needs to reach multiple systems.
+- It works well for notifications and event broadcasting.
+
+Simple example:
+
+- Order completed event is published to SNS.
+- One subscriber sends email.
+- Another subscriber writes to a queue.
+- Another triggers a Lambda function.
+
+Important concept:
+
+- SQS is a queue for one consumer pattern.
+- SNS is a broadcast model for multiple consumers.
+
+### Quick mental model for a .NET developer
+
+- API Gateway = entry point and router
+- SQS = queue for async work
+- ECS Fargate = container hosting
+- RDS = relational database
+- Redis = fast cache
+- S3 = file storage
+- CloudFront = global delivery/CDN
+- Lambda = serverless event handler
+- CloudWatch = logs and monitoring
+- X-Ray = tracing
+- SES = email
+- SNS = pub/sub notifications
+
+### What about Bonmojo?
+
+For Bonmojo, the material in my notes is mainly Azure-based, such as App Service, Azure SQL, Service Bus, Blob Storage, Application Insights, Key Vault, CDN, and Redis.
+
+So if the interviewer asks, "Did you use AWS in Bonmojo?" the safer and more correct answer is:
+
+"No, Bonmojo was mainly Azure-based. My stronger AWS usage was in the OSP-style project."
+
+### Best interview answer
+
+In my OSP project, I used AWS API Gateway, SQS, ECS Fargate, RDS, ElastiCache Redis, S3, CloudFront, Lambda, CloudWatch, X-Ray, SES, and SNS. These covered API routing, messaging, container hosting, database, caching, file storage, CDN, background processing, monitoring, tracing, email, and notifications. Bonmojo, on the other hand, was mainly Azure-based, so I would not incorrectly claim the same AWS stack there.
