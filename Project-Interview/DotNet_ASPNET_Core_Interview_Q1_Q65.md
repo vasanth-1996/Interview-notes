@@ -1,6 +1,6 @@
 # C# / ASP.NET Core Interview Preparation Guide
 
-## Simple, Step-by-Step Answers — Questions 1–65
+## Simple, Step-by-Step Answers — Questions 1–67
 
 > **Goal:** Prepare practical answers for a senior .NET / ASP.NET Core interview.  
 > The explanations use simple language, but include enough technical detail for follow-up questions.
@@ -851,19 +851,6 @@ Most objects die young.
 Therefore the GC can focus frequently on younger generations rather than scanning everything every time.
 
 ---
-
-# 12. How do you design C# classes to be testable?
-
-### Follow these principles
-
-1. Depend on interfaces.
-2. Use constructor injection.
-3. Keep classes focused.
-4. Avoid static dependencies.
-5. Avoid direct database access inside business logic.
-6. Avoid `new` for external dependencies inside the class.
-7. Keep methods small.
-8. Separate business logic from infrastructure.
 
 # 12. How do you design C# classes to be testable?
 
@@ -2566,6 +2553,7 @@ Scenario:
 ```text
 Browser → HTTPS → IIS → HTTP → Kestrel
 ```
+
 The confusion is because **HTTPS and HTTP here refer to two different connections**.
 
 Imagine IIS is the **security gate**.
@@ -2697,7 +2685,6 @@ The `X-Forwarded-Proto: https` header tells ASP.NET Core:
 
 That's the key concept to remember.
 
-
 ### Solution
 
 Configure forwarded headers correctly.
@@ -2772,250 +2759,6 @@ Database password
 ### Strong interview answer
 
 > I keep secrets outside source-controlled configuration files. In development I can use User Secrets, and in production I prefer a managed secret store such as Azure Key Vault with managed identity.
-
----
-
-# 42. Multithreaded code optimization
-
-This is a duplicate of Question 2.
-
-Key points:
-
-```text
-Avoid shared mutable state
-        ↓
-Avoid locks where unnecessary
-        ↓
-Use async I/O
-        ↓
-Use thread-safe collections
-        ↓
-Avoid .Result/.Wait()
-        ↓
-Keep critical sections small
-```
-
----
-
-# 43. Review code: generic Exception for validation
-
-Given:
-
-```csharp
-if (string.IsNullOrWhiteSpace(employee.Name))
-{
-    throw new Exception("employee Name is null");
-}
-```
-
-### Problems
-
-1. Generic `Exception`.
-2. Message says null, but the condition also includes empty/whitespace.
-3. Validation logic could be clearer.
-4. For an API, invalid client input should normally result in a suitable 4xx response rather than an unhandled generic exception.
-
-### Better
-
-With ASP.NET Core model validation:
-
-```csharp
-public class Employee
-{
-    [Required]
-    public string Name { get; set; } = "";
-}
-```
-
-Or explicit domain validation:
-
-```csharp
-if (string.IsNullOrWhiteSpace(employee.Name))
-{
-    throw new ArgumentException(
-        "Employee name is required.",
-        nameof(employee.Name));
-}
-```
-
-For an API, use appropriate validation handling so the client receives a clear `400 Bad Request`.
-
----
-
-# 44. Middleware order: Authorization before Authentication
-
-Given:
-
-```csharp
-app.UseAuthorization();
-app.UseAuthentication();
-```
-
-Yes, the order is wrong.
-
-Correct:
-
-```csharp
-app.UseAuthentication();
-app.UseAuthorization();
-```
-
-### Why?
-
-Authentication determines:
-
-> Who is the user?
-
-Authorization determines:
-
-> Is this user allowed to access this resource?
-
-Therefore:
-
-```text
-Authentication
-      ↓
-User identity created
-      ↓
-Authorization
-      ↓
-Access decision
-```
-
-If authorization runs first, the user identity may not have been established correctly.
-
----
-
-# 45. Async method where one Task is not awaited
-
-Given:
-
-```csharp
-public async Task ProcessDataAsync()
-{
-    SaveCustomerAsync();
-    await SaveOrderAsync();
-}
-```
-
-`SaveCustomerAsync()` is called but its returned Task is not awaited.
-
-### What can happen?
-
-The method starts the customer operation and immediately continues to:
-
-```csharp
-await SaveOrderAsync();
-```
-
-The caller does not wait for `SaveCustomerAsync()` through `ProcessDataAsync()`.
-
-Potential problems:
-
-- Customer save may still be running.
-- Exceptions from that task may not be observed normally.
-- `ProcessDataAsync()` can complete while customer save is still running.
-- Ordering is not guaranteed.
-
-### Better
-
-If operations must happen sequentially:
-
-```csharp
-await SaveCustomerAsync();
-await SaveOrderAsync();
-```
-
-If they are independent and should run concurrently:
-
-```csharp
-var customerTask = SaveCustomerAsync();
-var orderTask = SaveOrderAsync();
-
-await Task.WhenAll(customerTask, orderTask);
-```
-
----
-
-# 46. External API failure — which log level?
-
-If your application calls an external API and the call fails unexpectedly, normally use:
-
-```csharp
-LogError()
-```
-
-Example:
-
-```csharp
-_logger.LogError(
-    exception,
-    "Failed to call Customer API for customer {CustomerId}",
-    customerId);
-```
-
-### Why Error?
-
-The application failed to perform an expected operation.
-
-### Levels
-
-```text
-Trace
-Debug
-Information
-Warning
-Error
-Critical
-```
-
-Use `Critical` when the failure represents a severe application/system-level problem, not for every external API failure.
-
----
-
-# 47. What happens when an unhandled exception occurs in a controller?
-
-Example:
-
-```csharp
-public IActionResult Get()
-{
-    throw new Exception("Something failed");
-}
-```
-
-If not handled:
-
-```text
-Controller
-   ↓
-Exception
-   ↓
-Exception handling middleware
-   ↓
-HTTP error response
-```
-
-In development, the developer exception page may expose detailed information.
-
-In production, use exception-handling middleware to return a safe response.
-
-Example:
-
-```csharp
-app.UseExceptionHandler("/error");
-```
-
-### Important
-
-Do not expose:
-
-- Stack traces
-- Database details
-- Internal implementation details
-- Secrets
-
-to clients.
 
 ---
 
@@ -3240,94 +2983,6 @@ Async does not automatically mean:
 > A new thread is created.
 
 For I/O-bound operations, async is mainly about **not blocking threads while waiting**.
-
----
-
-# 53. HTTPS appears as HTTP behind IIS
-
-Same scenario as Question 40.
-
-```text
-Client
-  ↓ HTTPS
-IIS
-  ↓ HTTP
-Kestrel
-```
-
-Use forwarded headers so ASP.NET Core knows the original request scheme.
-
-```csharp
-app.UseForwardedHeaders();
-```
-
-Ensure IIS/proxy is configured to send the appropriate forwarded headers.
-
----
-
-# 54. Review validation code
-
-Given:
-
-```csharp
-if (string.IsNullOrWhiteSpace(employee.Name))
-{
-    throw new Exception("employee Name is null");
-}
-```
-
-Main improvements:
-
-```text
-Generic Exception
-       ↓
-Use appropriate validation mechanism
-       ↓
-Clear message
-       ↓
-Return proper API validation response
-```
-
-Prefer:
-
-```csharp
-[Required]
-public string Name { get; set; } = "";
-```
-
-or an appropriate specific exception/domain validation approach.
-
----
-
-# 55. Where to store DB passwords?
-
-### Development
-
-Use:
-
-```text
-.NET User Secrets
-Environment variables
-```
-
-### Production
-
-Prefer:
-
-```text
-Azure Key Vault
-Managed Identity
-Kubernetes/Cloud Secret Store
-Environment variables
-```
-
-Avoid:
-
-```text
-appsettings.json in Git
-Hard-coded password
-Source code
-```
 
 ---
 
@@ -3565,109 +3220,6 @@ public async Task<IActionResult> Get()
 ### Interview answer
 
 > I would make the whole call chain asynchronous instead of blocking with `.Result`.
-
----
-
-# 61. Middleware order
-
-Incorrect:
-
-```csharp
-app.UseAuthorization();
-app.UseAuthentication();
-```
-
-Correct:
-
-```csharp
-app.UseAuthentication();
-app.UseAuthorization();
-```
-
-Reason:
-
-```text
-Authentication → establish identity
-Authorization  → check permissions
-```
-
-Order matters because authorization depends on the authenticated identity.
-
----
-
-# 62. What happens if you don't await an asynchronous method?
-
-Example:
-
-```csharp
-public async Task ProcessDataAsync()
-{
-    SaveCustomerAsync();
-    await SaveOrderAsync();
-}
-```
-
-`SaveCustomerAsync()` returns a `Task`, but the task is ignored.
-
-Possible result:
-
-```text
-Start Customer Save
-       ↓
-Continue immediately
-       ↓
-Start/Await Order Save
-       ↓
-ProcessDataAsync may complete
-       ↓
-Customer Save may still be running
-```
-
-### Correct sequential version
-
-```csharp
-await SaveCustomerAsync();
-await SaveOrderAsync();
-```
-
-### Correct concurrent version
-
-```csharp
-var customerTask = SaveCustomerAsync();
-var orderTask = SaveOrderAsync();
-
-await Task.WhenAll(customerTask, orderTask);
-```
-
-Choose based on whether the operations depend on each other.
-
----
-
-# 63. Unhandled exception in a controller
-
-Flow:
-
-```text
-Controller action
-      ↓
-Exception thrown
-      ↓
-No local handler
-      ↓
-Exception middleware
-      ↓
-HTTP error response
-```
-
-Production applications should have centralized exception handling.
-
-Example:
-
-```csharp
-app.UseExceptionHandler("/error");
-```
-
-The client should receive a safe response rather than internal details.
 
 ---
 
@@ -4015,3 +3567,343 @@ For a senior .NET interview, be especially comfortable explaining these without 
 | IServiceCollection | Collection used to register DI services                     |
 | BackgroundService  | Convenient base class for long-running hosted work          |
 | IHostedService     | Interface for hosted application lifecycle services         |
+
+---
+
+# 66. What does Azure API Management (APIM) do?
+
+## Simple answer
+
+Azure API Management, or **APIM**, is a managed Azure service that acts as a controlled front door for APIs.
+
+It sits between API consumers and backend services:
+
+```text
+Client / Consumer
+     |
+     v
+Azure API Management
+     |
+     v
+Backend API
+```
+
+APIM does not usually contain the business logic of the backend API. Instead, it receives API requests, applies policies and security rules, forwards valid requests to the backend, and returns the backend response to the consumer.
+
+## What problems does APIM solve?
+
+APIM provides a central place to manage and protect APIs.
+
+### 1. Exposes APIs through a consistent endpoint
+
+Consumers can call a stable APIM URL even if the backend implementation, host, or internal URL changes.
+
+```text
+Consumer -> https://api.contoso.com/orders -> APIM -> Order API
+```
+
+### 2. Applies security controls
+
+APIM can help enforce rules such as:
+
+- Subscription keys
+- JWT token validation
+- OAuth or Microsoft Entra ID integration
+- IP filtering
+- Mutual TLS, where required
+
+Authentication and authorization should still be designed correctly in the backend. APIM adds a gateway layer; it does not automatically make an API secure.
+
+### 3. Controls traffic
+
+APIM policies can limit or shape traffic using features such as:
+
+- Rate limiting
+- Quotas
+- Request size limits
+- Caching
+- Request and response transformation
+
+For example, a rate-limit policy can prevent one consumer from sending an excessive number of requests to a backend API.
+
+### 4. Hides backend details
+
+The consumer does not need to know whether the backend is hosted in:
+
+- Azure App Service
+- Azure Functions
+- Azure Container Apps
+- Kubernetes
+- A private network
+- Another API platform
+
+APIM can route requests to the backend while exposing a cleaner public contract.
+
+### 5. Supports API versioning
+
+APIM can expose versions such as:
+
+```text
+/api/v1/orders
+/api/v2/orders
+```
+
+This allows a new API contract to be introduced while existing consumers continue using the older version during a migration period.
+
+### 6. Provides a developer portal
+
+The APIM developer portal can publish API documentation, operations, schemas, and subscription information for API consumers.
+
+### 7. Provides monitoring and visibility
+
+APIM can help track:
+
+- Request counts
+- Failures
+- Latency
+- Backend responses
+- Consumer or subscription usage
+
+It can also be connected to Azure Monitor and Application Insights for deeper observability.
+
+## What is an APIM policy?
+
+An APIM policy is a rule that runs during request or response processing.
+
+Policies can run in stages such as:
+
+```text
+Inbound request
+    |
+    v
+Backend request
+    |
+    v
+Outbound response
+    |
+    v
+Error handling
+```
+
+Example policy scenarios:
+
+- Validate a JWT token before forwarding the request.
+- Add a correlation ID header.
+- Rewrite a URL.
+- Remove a sensitive response header.
+- Return a cached response.
+- Limit the number of calls from a consumer.
+
+## Example request flow
+
+Suppose a client calls:
+
+```http
+GET https://api.contoso.com/orders/100
+Ocp-Apim-Subscription-Key: abc123
+Authorization: Bearer <token>
+```
+
+The flow may be:
+
+1. APIM receives the request.
+2. APIM checks the subscription key.
+3. APIM validates the token according to its policy.
+4. APIM checks rate limits and other rules.
+5. APIM forwards the request to the Order API.
+6. The Order API executes business logic and returns a response.
+7. APIM applies any response policies.
+8. APIM returns the response to the client.
+
+## What APIM is not
+
+APIM is not a replacement for:
+
+- The backend API's business logic
+- A database
+- An identity provider
+- Complete application monitoring
+- Correct authorization inside the application
+
+For example, APIM may validate that a token is present, but the backend may still need to check whether the user is allowed to access order 100.
+
+## Senior interview answer
+
+> Azure API Management is a managed API gateway and management platform. It provides a stable front door for backend APIs and can centralize security, authentication policies, rate limiting, quotas, transformations, caching, versioning, documentation, and monitoring. APIM forwards requests to backend services, but the backend remains responsible for its own business logic and authorization decisions.
+
+---
+
+# 67. What is the difference between an API and an operation in APIM?
+
+## Simple answer
+
+In APIM:
+
+- An **API** is a collection or grouping of related endpoints.
+- An **operation** is one specific action or endpoint inside that API.
+
+Think of an API as a **menu** and an operation as one **item on the menu**.
+
+```text
+API: Employee API
+   |
+   +-- Operation: GET /employees
+   +-- Operation: GET /employees/{id}
+   +-- Operation: POST /employees
+   +-- Operation: DELETE /employees/{id}
+```
+
+## Beginner-friendly example
+
+Suppose a company has an Employee API:
+
+```text
+API name: Employee API
+Base URL: https://api.contoso.com/employees
+```
+
+This API may contain several operations:
+
+| Operation       | HTTP method and URL      | Purpose                    |
+| --------------- | ------------------------ | -------------------------- |
+| List employees  | `GET /employees`         | Returns multiple employees |
+| Get employee    | `GET /employees/{id}`    | Returns one employee       |
+| Create employee | `POST /employees`        | Creates an employee        |
+| Update employee | `PUT /employees/{id}`    | Updates an employee        |
+| Delete employee | `DELETE /employees/{id}` | Deletes an employee        |
+
+The **Employee API** is the overall group. Each row is an individual **operation**.
+
+## What does an API contain in APIM?
+
+An APIM API commonly contains:
+
+- A display name
+- A URL suffix or base path
+- A backend URL
+- One or more operations
+- API version information, where applicable
+- Products and subscriptions
+- Policies at the API level
+- Documentation and schemas
+
+For example:
+
+```text
+API
+  Name: Employee API
+  Base path: employees
+  Backend: https://employee-service.contoso.com
+  Operations:
+    GET /employees
+    GET /employees/{id}
+    POST /employees
+```
+
+## What does an operation contain?
+
+An operation describes one callable action. It commonly contains:
+
+- HTTP method, such as `GET`, `POST`, `PUT`, or `DELETE`
+- URL template, such as `/employees/{id}`
+- Operation display name
+- Path and query parameters
+- Request representation or schema
+- Response status codes and schemas
+- Operation-level policies
+
+Example:
+
+```text
+Operation: Get employee
+Method: GET
+URL template: /employees/{id}
+Parameter: id
+Success response: 200 OK
+Not found response: 404 Not Found
+```
+
+## API-level policy vs operation-level policy
+
+An important APIM interview distinction is policy scope.
+
+### API-level policy
+
+Applies to operations in that API unless a more specific policy changes the behavior.
+
+Example use cases:
+
+- Add a common correlation ID.
+- Apply a shared rate limit to the Employee API.
+- Validate a token for all employee operations.
+
+### Operation-level policy
+
+Applies only to one operation.
+
+Example use cases:
+
+- Apply special caching to `GET /employees`.
+- Allow a larger request body for `POST /employees`.
+- Transform the response of one legacy operation.
+
+Conceptually:
+
+```text
+Product policy
+    |
+    v
+API policy
+    |
+    v
+Operation policy
+```
+
+The exact effective behavior depends on the policy and scope configuration. The key interview idea is that policies can be applied at different levels, from broad shared rules to one specific operation.
+
+## Is an API the same as a backend service?
+
+Not always.
+
+An APIM API is an exposed contract or grouping in the gateway. It can represent:
+
+- One backend service
+- Several backend services
+- A facade over legacy services
+- A version of an API
+- A transformed public contract
+
+For example, one APIM API could expose a customer-facing endpoint that combines data from an Orders service and a Customer service. APIM defines how consumers access the contract; it does not require a one-to-one mapping with a backend service.
+
+## Is an operation the same as a C# controller method?
+
+They are related, but they are not the same object.
+
+A C# controller method is an implementation in the backend application:
+
+```csharp
+[HttpGet("{id}")]
+public async Task<IActionResult> Get(int id)
+{
+    // Backend implementation
+}
+```
+
+The corresponding APIM operation is the gateway's description and configuration for calling that endpoint:
+
+```text
+GET /employees/{id}
+```
+
+The APIM operation can apply gateway policies before and after the request reaches the controller.
+
+## Interview answer
+
+> In Azure API Management, an API is a logical group of related endpoints that share a base path, backend, documentation, and often common policies. An operation is one specific callable endpoint inside that API, identified by an HTTP method and URL template, such as `GET /employees/{id}`. API-level policies affect the API broadly, while operation-level policies target one endpoint.
+
+## Easy memory trick
+
+```text
+API       = Collection of related endpoints
+Operation = One method plus one URL template
+```
